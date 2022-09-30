@@ -39,13 +39,10 @@ int main()
     lora.transmit(buf, sizeof(buf));
     printf("transmitted something\n");
     
-
+    lora.waitForTransmission();
+    printf("done");
     while(1){
-        //do nuthin'
-        if((lora.flags & 0x40) == 0x40){
-            printf("int triggered = 0x%x\n", lora.flag_handler());
-        }
-        
+        //do nuthin'        
     }
 
 }
