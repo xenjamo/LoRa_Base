@@ -8,16 +8,17 @@
 
 
 //Hardware connections
-#define CS_PIN PB_6
+#define CS_PIN PB_1
 #define INT_PIN PA_8
 //SPI
-#define MOSI_PIN PA_7
-#define MISO_PIN PA_6
-#define SCLK_PIN PA_5
+#define MOSI_PIN PB_15
+#define MISO_PIN PB_14
+#define SCLK_PIN PB_13
 
 //BufferedSerial pc(USBTX, USBRX);
 SPI spi(MOSI_PIN, MISO_PIN, SCLK_PIN);
 bool txFlag = 0;
+DigitalOut led(LED1);
 
 int main()
 {
@@ -31,19 +32,26 @@ int main()
     // initalise LoRa
     lora.init();
 
-    uint8_t data = lora.read(0x06);
-
-    printf("data read from register = %x\n", data);
-
-    uint8_t buf[] = {"Hello World!"};
-    lora.transmit(buf, sizeof(buf));
-    printf("transmitted something\n");
-    
-    lora.waitForTransmission();
-    printf("done");
-    while(1){
-        //do nuthin'        
+    uint8_t loop = 1;
+    while(loop){
+        uint8_t buf[] = {"Hello World!"};
+        led = 1;
+        if(!lora.transmit(buf, sizeof(buf))){
+            printf("transmit failed\n");
+            break;
+        }
+        if(!lora.waitForTransmission()){
+            printf("timeout");
+            break;
+        }
+        led = 0;
+        loop++;
+        ThisThread::sleep_for(5000ms);
     }
+    printf("---program stop---\n");
+    
+    
+    
 
 }
 
