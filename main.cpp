@@ -2,7 +2,7 @@
  * Copyright (c) 2019 ARM Limited
  * SPDX-License-Identifier: Apache-2.0
  */
-
+#include <cstdint>
 #include "mbed.h"
 #include "LoRa_interface.h"
 
@@ -41,7 +41,7 @@ int main()
             break;
         }
         if(!lora.waitForTransmission()){
-            printf("timeout");
+            printf("timeout\n");
             break;
         }
         led = 0;
