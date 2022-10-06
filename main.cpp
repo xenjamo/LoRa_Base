@@ -16,14 +16,16 @@
 #define SCLK_PIN PB_13
 
 //BufferedSerial pc(USBTX, USBRX);
+BufferedSerial pc(USBTX, USBRX, 115200);
 SPI spi(MOSI_PIN, MISO_PIN, SCLK_PIN);
 bool txFlag = 0;
 DigitalOut led(LED1);
 
 int main()
 {
-    printf("---programm start---\n");
+    printf("---programm start Base---\n");
     // initalise spi port
+
     spi.format(8, 0);
     spi.frequency(1000000);
 
@@ -31,22 +33,57 @@ int main()
     RFM95 lora(CS_PIN, INT_PIN, &spi);
     // initalise LoRa
     lora.init();
-
+    uint8_t data[RH_RF95_MAX_MESSAGE_LEN];
+    uint8_t len = sizeof(data);
+    int state = 1;
     uint8_t loop = 1;
+    
+    uint8_t buf[] = {"Hello World! PING!"};
+    led = 1;
+
+    if(!lora.transmit(buf, sizeof(buf))){
+        printf("transmit failed\n");
+    }
+
     while(loop){
-        uint8_t buf[] = {"Hello World!"};
-        led = 1;
-        if(!lora.transmit(buf, sizeof(buf))){
-            printf("transmit failed\n");
+        switch(state){
+            case 0:
+                printf("something went wrong\n");
+                ThisThread::sleep_for(2s);
+                
+            break;
+            case 1: // transmit state
+
+                
+                if(lora.event_handler() == TX_DONE){
+                    state = 2;
+                    led = 0;
+                    lora.setModeContRX();
+                    ThisThread::sleep_for(500ms);
+                    
+                    
+                    
+                }
+
+            break;
+            case 2: // receive state
+                if(lora.event_handler() == RX_DONE){
+                    lora.setModeIdle();
+                    lora.receive(data, len);
+                    printf("%s\n",data);
+                    state = 1;
+                    led = 1;
+                    ThisThread::sleep_for(500ms);
+                    if(!lora.transmit(buf, sizeof(buf))){ //transmit data
+                        printf("transmit failed\n");
+                        state = 0;
+                        break;
+                    }
+                }
+
             break;
         }
-        if(!lora.waitForTransmission()){
-            printf("timeout\n");
-            break;
-        }
-        led = 0;
-        loop++;
-        ThisThread::sleep_for(5000ms);
+        
     }
     printf("---program stop---\n");
     
