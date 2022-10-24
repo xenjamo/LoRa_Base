@@ -9,7 +9,7 @@
 
 //Hardware connections
 #define CS_PIN PB_1
-#define INT_PIN PA_8
+#define INT_PIN PC_4
 //SPI
 #define MOSI_PIN PB_15
 #define MISO_PIN PB_14
@@ -45,6 +45,7 @@ int main()
         printf("transmit failed\n");
     }
 
+
     while(loop){
         switch(state){
             case 0:
@@ -60,7 +61,6 @@ int main()
                     led = 0;
                     lora.setModeContRX();
                     ThisThread::sleep_for(500ms);
-                    
                     
                     
                 }
