@@ -29,7 +29,8 @@ typedef enum{
     RTK_ERR,
     RTK_TRANSMIT,
     RTK_RECEIVE,
-    RTK_GET_RTCM_MSG
+    RTK_GET_RTCM_MSG,
+    RTK_SEND_RTCM_MSG
 
 }rtk_state;
 
@@ -42,7 +43,7 @@ typedef enum{
 UnbufferedSerial uart(PA_0, PA_1, 921600);
 BufferedSerial pc(USBTX, USBRX, 115200);
 SPI spi(MOSI_PIN, MISO_PIN, SCLK_PIN);
-bool txFlag = 0;
+//bool txFlag = 0;
 DigitalOut led(LED1);
 
 int main()
@@ -79,10 +80,10 @@ int main()
     uint8_t n = 0;
     //uint8_t i = 0;
     
-    uint8_t buffer[] = {"Hello World! ultra long buffer to extend byte size so we can reach more than 250 bytes"};
+    uint8_t buffer[] = {"Hello World! ultra long buffer to extend byte size so we can reach more than 250 bytes!! (hopefully)"};
     uint16_t buf_len = sizeof(buffer);
 
-    led = 1;
+    led = 0;
 
 
     while(loop){
@@ -90,11 +91,13 @@ int main()
         switch(state){
             case(RTK_ERR):
                 printf("something went wrong\n");
-                ThisThread::sleep_for(5s);
+                ThisThread::sleep_for(1s);
+                led = !led;
                 
             break;
             case(RTK_IDLE):
                 ThisThread::sleep_for(1s);
+                printf("multi_transmit starts here\n");
                 buf_len = sizeof(buffer);
                 //maybe pack this in a function
                 lora.n_payloads = lora.get_n_payloads(buf_len);
@@ -105,7 +108,7 @@ int main()
                     tx_len = buf_len % RH_RF95_MAX_MESSAGE_LEN;
                     buf_len = 0;
                 }
-                printf("tx=%d, buf=%d\n", tx_len, buf_len);
+                printf("n=%d, tx=%d, buf=%d\n",lora.n_payloads, tx_len, buf_len);
                 /////function end
                 if(!lora.transmit(buffer, tx_len)){ //transmit data
                     printf("transmit failed\n");
@@ -120,10 +123,11 @@ int main()
 
                 
                 if(lora.event_handler() == TX_DONE){
+
                     state = RTK_RECEIVE;
                     led = 0;
                     lora.setModeContRX();
-                    printf("so far so good\n");
+                    //printf("so far so good\n");
                     //ThisThread::sleep_for(500ms);
                 }
 
@@ -131,57 +135,54 @@ int main()
             case(RTK_RECEIVE): // receive state
 
                 if(lora.event_handler() == RX_DONE){
+                    printf("rx_done\n");
                     lora.setModeIdle();
                     lora.receive(data, rx_len);
 
 
                     
-                    if(data[4] & 0x01){ //first bit of the flag byte indicates ack
+                    if(data[3] & 0x01){ //first bit of the flag byte indicates ack
+                        printf("ack\n");
+                        led = 1;
                         lora.n_payloads_sent++;
-
-                        //please pack this in a function
-                        lora.n_payloads = lora.get_n_payloads(buf_len);
                         if(lora.n_payloads){
-                            tx_len = RH_RF95_MAX_MESSAGE_LEN;
-                            buf_len -= tx_len;
-                        } else {
-                            tx_len = buf_len % RH_RF95_MAX_MESSAGE_LEN;
-                            buf_len = 0;
-                        }
-                        printf("tx=%d, buf=%d\n", tx_len, buf_len);
-                        if(!lora.transmit(buffer + lora.n_payloads_sent*RH_RF95_MAX_MESSAGE_LEN, tx_len)){ //transmit data
-                            printf("transmit failed\n");
-                            state = RTK_ERR;
-                            break;
-                        }
-                        ////function end
-
-                        if(lora.n_payloads){
+                            //please pack this in a function
+                            lora.n_payloads = lora.get_n_payloads(buf_len);
+                            if(lora.n_payloads){
+                                tx_len = RH_RF95_MAX_MESSAGE_LEN;
+                                buf_len -= tx_len;
+                            } else {
+                                tx_len = buf_len % RH_RF95_MAX_MESSAGE_LEN;
+                                buf_len = 0;
+                            }
+                            printf("n=%d, tx=%d, buf=%d\n",lora.n_payloads, tx_len, buf_len);
+                            if(!lora.transmit(buffer + lora.n_payloads_sent*RH_RF95_MAX_MESSAGE_LEN, tx_len)){ //transmit data
+                                printf("transmit failed\n");
+                                state = RTK_ERR;
+                                break;
+                            }
                             state = RTK_TRANSMIT;
-                        }else{
+                            ////function end
+
+                        } else{
+                            printf("trasmission complete\n");
+                            lora.n_payloads_sent = 0;
                             state = RTK_IDLE;
+
                         }
+
                     }else{
                         if(!lora.transmit(buffer + lora.n_payloads_sent*RH_RF95_MAX_MESSAGE_LEN, tx_len)){ //transmit data
                             printf("transmit failed\n");
                             state = RTK_ERR;
                             break;
                         }
+                        state = RTK_TRANSMIT;
                         lora.n_tries++;
                         if(lora.n_tries >= 5){
                             state = RTK_ERR;
                         }
-                        
                     }
-                    led = 1;
-                    //ThisThread::sleep_for(500ms);
-                    /*
-                    if(!lora.transmit(buffer, sizeof(buffer))){ //transmit data
-                        printf("transmit failed\n");
-                        state = RTK_ERR;
-                        break;
-                    }
-                    */
                 }
 
             break;
