@@ -105,6 +105,8 @@ int main()
                     tx_len = buf_len % RH_RF95_MAX_MESSAGE_LEN;
                     buf_len = 0;
                 }
+                printf("tx=%d, buf=%d\n", tx_len, buf_len);
+                /////function end
                 if(!lora.transmit(buffer, tx_len)){ //transmit data
                     printf("transmit failed\n");
                     state = RTK_ERR;
@@ -136,6 +138,8 @@ int main()
                     
                     if(data[4] & 0x01){ //first bit of the flag byte indicates ack
                         lora.n_payloads_sent++;
+
+                        //please pack this in a function
                         lora.n_payloads = lora.get_n_payloads(buf_len);
                         if(lora.n_payloads){
                             tx_len = RH_RF95_MAX_MESSAGE_LEN;
@@ -144,11 +148,13 @@ int main()
                             tx_len = buf_len % RH_RF95_MAX_MESSAGE_LEN;
                             buf_len = 0;
                         }
+                        printf("tx=%d, buf=%d\n", tx_len, buf_len);
                         if(!lora.transmit(buffer + lora.n_payloads_sent*RH_RF95_MAX_MESSAGE_LEN, tx_len)){ //transmit data
                             printf("transmit failed\n");
                             state = RTK_ERR;
                             break;
                         }
+                        ////function end
 
                         if(lora.n_payloads){
                             state = RTK_TRANSMIT;
