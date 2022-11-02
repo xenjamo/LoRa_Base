@@ -121,7 +121,6 @@ int main()
             case(RTK_RECEIVE): // receive state
 
                 if(timeout.elapsed_time() >= 400ms){
-                    led = 0;
                     lora.setModeIdle();
                     printf("timeout\n");
                     lora.n_payloads_sent = 0;
@@ -135,7 +134,7 @@ int main()
                     lora.setModeIdle();
                     lora.receive(data, rx_len);
 
-
+                    led = 0;
                     
                     if(data[3] & 0x01){ //first bit of the flag byte indicates ack
                         lora.n_payloads_sent++;
@@ -155,11 +154,11 @@ int main()
                                 state = RTK_ERR;
                                 break;
                             }
+                            led = 1;
                             state = RTK_TRANSMIT;
                             ////function end
 
                         } else{
-                            led = 0;
                             printf("transmission complete total bytes: %d\n\n",(lora.n_payloads_sent-1)*RH_RF95_MAX_MESSAGE_LEN+tx_len);
                             lora.n_payloads_sent = 0;
                             state = RTK_GET_RTCM_MSG;
