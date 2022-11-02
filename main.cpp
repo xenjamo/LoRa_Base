@@ -74,11 +74,12 @@ int main()
     uint8_t* rtcm_data = (uint8_t*)malloc(MAXIMUM_BUFFER_SIZE*MAXIMUM_MESSAGES);
     uint16_t rtcm_len = 0;
     uint16_t rtcm_len2 = 0;
-    rtk_state state = RTK_IDLE;
+    rtk_state state = RTK_GET_RTCM_MSG;
     uint8_t loop = 1;
     
     uint8_t n = 0;
     //uint8_t i = 0;
+    Timer timeout;
     
     uint8_t buffer[] = {"Hello World! ultra long buffer to extend byte size so we can reach more than 250 bytes!! (hopefully)"};
     uint16_t buf_len = sizeof(buffer);
@@ -96,26 +97,9 @@ int main()
                 
             break;
             case(RTK_IDLE):
+                printf("idleing\n");
                 ThisThread::sleep_for(1s);
-                printf("multi_transmit starts here\n");
-                buf_len = sizeof(buffer);
-                //maybe pack this in a function
-                lora.n_payloads = lora.get_n_payloads(buf_len);
-                if(lora.n_payloads){
-                    tx_len = RH_RF95_MAX_MESSAGE_LEN;
-                    buf_len -= tx_len;
-                } else {
-                    tx_len = buf_len % RH_RF95_MAX_MESSAGE_LEN;
-                    buf_len = 0;
-                }
-                printf("n=%d, tx=%d, buf=%d\n",lora.n_payloads, tx_len, buf_len);
-                /////function end
-                if(!lora.transmit(buffer, tx_len)){ //transmit data
-                    printf("transmit failed\n");
-                    state = RTK_ERR;
-                    break;
-                }
-                state = RTK_TRANSMIT;
+                led = !led;
 
 
             break;
@@ -123,40 +107,50 @@ int main()
 
                 
                 if(lora.event_handler() == TX_DONE){
-
-                    state = RTK_RECEIVE;
                     led = 0;
+                    state = RTK_RECEIVE;
                     lora.setModeContRX();
                     //printf("so far so good\n");
                     //ThisThread::sleep_for(500ms);
+                    timeout.start();
+                    timeout.reset();
+                    
                 }
 
             break;
             case(RTK_RECEIVE): // receive state
 
+                if(timeout.elapsed_time() >= 400ms){
+                    led = 0;
+                    lora.setModeIdle();
+                    printf("timeout\n");
+                    lora.n_payloads_sent = 0;
+                    state = RTK_GET_RTCM_MSG;
+                    timeout.stop();
+
+                }
+
                 if(lora.event_handler() == RX_DONE){
-                    printf("rx_done\n");
+                    //printf("rx_done\n");
                     lora.setModeIdle();
                     lora.receive(data, rx_len);
 
 
                     
                     if(data[3] & 0x01){ //first bit of the flag byte indicates ack
-                        printf("ack\n");
-                        led = 1;
                         lora.n_payloads_sent++;
                         if(lora.n_payloads){
                             //please pack this in a function
-                            lora.n_payloads = lora.get_n_payloads(buf_len);
+                            lora.n_payloads = lora.get_n_payloads(rtcm_len);
                             if(lora.n_payloads){
                                 tx_len = RH_RF95_MAX_MESSAGE_LEN;
-                                buf_len -= tx_len;
+                                rtcm_len -= tx_len;
                             } else {
-                                tx_len = buf_len % RH_RF95_MAX_MESSAGE_LEN;
-                                buf_len = 0;
+                                tx_len = rtcm_len % RH_RF95_MAX_MESSAGE_LEN;
+                                rtcm_len = 0;
                             }
-                            printf("n=%d, tx=%d, buf=%d\n",lora.n_payloads, tx_len, buf_len);
-                            if(!lora.transmit(buffer + lora.n_payloads_sent*RH_RF95_MAX_MESSAGE_LEN, tx_len)){ //transmit data
+                            //printf("n=%d, tx=%d, buf=%d\n",lora.n_payloads, tx_len, buf_len);
+                            if(!lora.transmit(rtcm_data + lora.n_payloads_sent*RH_RF95_MAX_MESSAGE_LEN, tx_len)){ //transmit data
                                 printf("transmit failed\n");
                                 state = RTK_ERR;
                                 break;
@@ -165,9 +159,11 @@ int main()
                             ////function end
 
                         } else{
-                            printf("trasmission complete\n");
+                            led = 0;
+                            printf("transmission complete total bytes: %d\n\n",(lora.n_payloads_sent-1)*RH_RF95_MAX_MESSAGE_LEN+tx_len);
                             lora.n_payloads_sent = 0;
-                            state = RTK_IDLE;
+                            state = RTK_GET_RTCM_MSG;
+                            timeout.stop();
 
                         }
 
@@ -177,6 +173,7 @@ int main()
                             state = RTK_ERR;
                             break;
                         }
+                        printf("nack\n");
                         state = RTK_TRANSMIT;
                         lora.n_tries++;
                         if(lora.n_tries >= 5){
@@ -184,12 +181,28 @@ int main()
                         }
                     }
                 }
+                /*
+                if(lora.event_handler() == RX_BAD){
+                    if(!lora.transmit(rtcm_data + lora.n_payloads_sent*RH_RF95_MAX_MESSAGE_LEN, tx_len)){ //transmit data
+                        printf("transmit failed\n");
+                        state = RTK_ERR;
+                        break;
+                    }
+                    printf("nack\n");
+                    state = RTK_TRANSMIT;
+                    lora.n_tries++;
+                    if(lora.n_tries >= 5){
+                    state = RTK_ERR;
+                    }
+                }
+                */
 
             break;
             case(RTK_GET_RTCM_MSG): //read uart
                 //printf("congrats! no crash");
                 
                 if(gps.readCompleteMsg(rtcm_data, rtcm_len)){
+                    /*
                     printf("rx = 0x");
                     print_hex((char*)rtcm_data, rtcm_len);
                     printf(" %d bytes\n", rtcm_len);
@@ -197,6 +210,27 @@ int main()
                     print_hex((char*)gps.rtcm_msg,gps.rtcm_msg_pointer);
                     printf("\n\n");
                     //led = !led;
+                    */
+
+                    //maybe pack this in a function
+                    lora.n_payloads = lora.get_n_payloads(rtcm_len);
+                    if(lora.n_payloads){
+                        tx_len = RH_RF95_MAX_MESSAGE_LEN;
+                        rtcm_len -= tx_len;
+                    } else {
+                        tx_len = rtcm_len % RH_RF95_MAX_MESSAGE_LEN;
+                        rtcm_len = 0;
+                    }
+                    printf("n=%d, tx=%d, buf=%d\n",lora.n_payloads, tx_len, rtcm_len);
+                    /////function end
+                    if(!lora.transmit(rtcm_data, tx_len)){ //transmit data
+                        printf("transmit failed\n");
+                        state = RTK_ERR;
+                        break;
+                    }
+                    led = 1;
+                    state = RTK_TRANSMIT;
+                    
                 } else{
                     //no message
                 }
