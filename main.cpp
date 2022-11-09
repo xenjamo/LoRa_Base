@@ -73,7 +73,7 @@ int main()
     uint8_t tx_len = 0;
     uint8_t* rtcm_data = (uint8_t*)malloc(MAXIMUM_RTCM_MESSAGE_LENGTH*MAXIMUM_RTCM_MESSAGES); //ideally this is dynamic but this should suffice
     uint16_t rtcm_len = 0;
-    uint8_t* ubx_data = (uint8_t*)malloc(100);
+    uint8_t* ubx_data = (uint8_t*)malloc(200);
     uint16_t ubx_len = 0;
     rtk_state state = RTK_GET_RTCM_MSG;
     uint8_t loop = 1;
@@ -81,9 +81,6 @@ int main()
     //uint8_t i = 0;
     Timer timeout;
     
-    uint8_t buffer[] = {"Hello World! ultra long buffer to extend byte size so we can reach more than 250 bytes!! (hopefully)"};
-    uint16_t buf_len = sizeof(buffer);
-
     led = 0;
 
 
@@ -169,7 +166,7 @@ int main()
                         }
 
                     }else{
-                        if(!lora.transmit(buffer + lora.n_payloads_sent*RH_RF95_MAX_MESSAGE_LEN, tx_len)){ //transmit data
+                        if(!lora.transmit(rtcm_data + lora.n_payloads_sent*RH_RF95_MAX_MESSAGE_LEN, tx_len)){ //transmit data
                             printf("transmit failed\n");
                             state = RTK_ERR;
                             break;
@@ -203,21 +200,48 @@ int main()
                 //printf("congrats! no crash");
                 
                 if(gps.data_ready()){
-                    gps.decode();
-                    gps.encode_RTCM(rtcm_data, rtcm_len);
-                    gps.encode_UBX(ubx_data, ubx_len);
-                    printf("total bytes from UART = %d\n", gps.rtcm_msg_pointer);
-                    gps.clearAll();
-                    /*
-                    printf("rx = 0x");gps.getRtcmMsg(rtcm_data, rtcm_len)
-                    print_hex((char*)rtcm_data, rtcm_len);
-                    printf(" %d bytes\n", rtcm_len);
                     
-                    print_hex((char*)gps.rtcm_msg,gps.rtcm_msg_pointer);
-                    printf("\n\n");
-                    //led = !led;
+                    /*
+                    printf("cpl = 0x");
+                    print_hex((char*)gps.rtcm_msg, gps.rtcm_msg_pointer);
+                    printf(" %d bytes\n", gps.rtcm_msg_pointer);
                     */
 
+                    gps.decode();
+
+                    char buf[300];
+                    uint16_t l = 0;
+                    int i = 0;
+                    while(gps.ubx[i].isvalid){
+                        if(gps.ubx[i].ubx2string(buf, l)){
+                            printf("ubx = %s, l = %d\n",buf,l);
+                        } else {
+                            printf("no ubx[%d]\n", i);
+                        }
+                        i++;
+                    }
+                    
+                    
+
+
+                    if(gps.printMsgTypes()){
+                        gps.encode_RTCM(rtcm_data, rtcm_len);
+                        printf("rtcm = 0x");
+                        //print_hex((char*)rtcm_data, rtcm_len);
+                        printf(" %d bytes\n", rtcm_len);
+                    } else {
+                        printf("no rtcm\n");
+                    }
+                    
+                    //gps.encode_UBX(ubx_data, ubx_len);
+                    
+                    //print_hex((char*)ubx_data, ubx_len);
+                    //printf(" %d bytes\n", ubx_len);
+                    
+
+                    printf("total bytes from UART = %d\n", gps.rtcm_msg_pointer);
+                    gps.clearAll();
+                    
                     //maybe pack this in a function
                     lora.n_payloads = lora.get_n_payloads(rtcm_len);
                     if(lora.n_payloads){
