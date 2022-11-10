@@ -214,7 +214,8 @@ int main()
                     int i = 0;
                     while(gps.ubx[i].isvalid){
                         if(gps.ubx[i].ubx2string(buf, l)){
-                            printf("ubx = %s, l = %d\n",buf,l);
+                            //printf("ubx = %s, ",buf);
+                            printf("l = %d\n",l);
                         } else {
                             printf("no ubx[%d]\n", i);
                         }
@@ -226,9 +227,9 @@ int main()
 
                     if(gps.printMsgTypes()){
                         gps.encode_RTCM(rtcm_data, rtcm_len);
-                        printf("rtcm = 0x");
+                        //printf("rtcm = 0x");
                         //print_hex((char*)rtcm_data, rtcm_len);
-                        printf(" %d bytes\n", rtcm_len);
+                        //printf(" %d bytes\n", rtcm_len);
                     } else {
                         printf("no rtcm\n");
                     }
