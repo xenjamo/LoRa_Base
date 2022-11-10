@@ -214,7 +214,7 @@ int main()
                     int i = 0;
                     while(gps.ubx[i].isvalid){
                         if(gps.ubx[i].ubx2string(buf, l)){
-                            //printf("ubx = %s, ",buf);
+                            printf("ubx = %s, ",buf);
                             printf("l = %d\n",l);
                         } else {
                             printf("no ubx[%d]\n", i);
