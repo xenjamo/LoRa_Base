@@ -113,7 +113,6 @@ int main()
 
                 
                 if(lora.event_handler() == TX_DONE){
-                    led = 0;
                     state = RTK_RECEIVE;
                     lora.setModeContRX();
                     //printf("so far so good\n");
@@ -125,6 +124,7 @@ int main()
 
             break;
             case(RTK_RECEIVE): // receive state
+                led = 0;
 
                 if(timeout.elapsed_time() >= 400ms){
                     lora.setModeIdle();
@@ -137,10 +137,10 @@ int main()
 
                 if(lora.event_handler() == RX_DONE){
                     //printf("rx_done\n");
+                    led = 1;
                     lora.setModeIdle();
                     lora.receive(data, rx_len);
 
-                    led = 0;
                     
                     if(data[3] & 0x01){ //first bit of the flag byte indicates ack
                         lora.n_payloads_sent++;
@@ -160,7 +160,6 @@ int main()
                                 state = RTK_ERR;
                                 break;
                             }
-                            led = 1;
                             state = RTK_TRANSMIT;
                             ////function end
 
@@ -207,9 +206,10 @@ int main()
             break;
             case(RTK_GET_RTCM_MSG): //read uart
                 //printf("congrats! no crash");
+                led = 0;
                 
                 if(gps.data_ready()){
-                    
+                    led = 1;
                     /*
                     printf("cpl = 0x");
                     print_hex((char*)gps.rtcm_msg, gps.rtcm_msg_pointer);
@@ -217,21 +217,6 @@ int main()
                     */
 
                     gps.decode();
-
-                    char buf[300];
-                    uint16_t l = 0;
-                    int i = 0;
-                    while(gps.ubx[i].isvalid){
-                        if(gps.ubx[i].ubx2string(buf, l)){
-                            sd.write2sd(buf,l);
-                        } else {
-                            printf("no ubx[%d]\n", i);
-                        }
-                        i++;
-                    }
-                    sd.writeln();
-                    
-                    
 
 
                     if(gps.printMsgTypes()){
@@ -250,7 +235,6 @@ int main()
                     
 
                     printf("total bytes from UART = %d\n", gps.rtcm_msg_pointer);
-                    gps.clearAll();
                     
                     //maybe pack this in a function
                     lora.n_payloads = lora.get_n_payloads(rtcm_len);
@@ -268,7 +252,22 @@ int main()
                         state = RTK_ERR;
                         break;
                     }
-                    led = 1;
+
+                    //store ubx stuff to sd card
+                    char buf[400];
+                    uint16_t l = 0;
+                    int i = 0;
+                    while(gps.ubx[i].isvalid){
+                        if(gps.ubx[i].ubx2string(buf, l)){
+                            sd.write2sd(buf,l);
+                        } else {
+                            printf("no ubx[%d]\n", i);
+                        }
+                        i++;
+                    }
+                    sd.writeln();
+                    gps.clearAll();
+
                     state = RTK_TRANSMIT;
                     
                 } else{
