@@ -6,6 +6,7 @@
 #include "mbed.h"
 #include "LoRa_interface.h"
 #include "GPS_interface.h"
+#include "SD_interface.h"
 
 
 //Hardware connections
@@ -55,6 +56,14 @@ int main()
     spi.frequency(1000000);
     uart.format(8,SerialBase::None,1);
     
+
+    //init SD card
+    
+    int _fakeint = 2;
+    SDCARD sd(_fakeint);
+    if(!sd.init()){
+        printf("SD init failed\n");
+    }
 
     // Create GPS object
 
@@ -214,13 +223,13 @@ int main()
                     int i = 0;
                     while(gps.ubx[i].isvalid){
                         if(gps.ubx[i].ubx2string(buf, l)){
-                            printf("ubx = %s, ",buf);
-                            printf("l = %d\n",l);
+                            sd.write2sd(buf,l);
                         } else {
                             printf("no ubx[%d]\n", i);
                         }
                         i++;
                     }
+                    sd.writeln();
                     
                     
 
