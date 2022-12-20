@@ -1,7 +1,9 @@
-/* mbed Microcontroller Library
- * Copyright (c) 2019 ARM Limited
- * SPDX-License-Identifier: Apache-2.0
- */
+/*
+
+base station sample code
+it hase become increasingly more complex
+
+*/
 #include <cstdint>
 #include "mbed.h"
 #include "LoRa_interface.h"
@@ -53,7 +55,7 @@ int main()
 
     // initalise serial spi ports
     spi.format(8, 0);
-    spi.frequency(1000000);
+    spi.frequency(10000000);
     uart.format(8,SerialBase::None,1);
     
 
@@ -61,9 +63,11 @@ int main()
     
     int _fakeint = 2;
     SDCARD sd(_fakeint);
+    
     if(!sd.init()){
         printf("SD init failed\n");
     }
+
 
     // Create GPS object
 
@@ -126,15 +130,6 @@ int main()
             case(RTK_RECEIVE): // receive state
                 led = 0;
 
-                if(timeout.elapsed_time() >= 400ms){
-                    lora.setModeIdle();
-                    printf("timeout\n");
-                    lora.n_payloads_sent = 0;
-                    state = RTK_GET_RTCM_MSG;
-                    timeout.stop();
-
-                }
-
                 if(lora.event_handler() == RX_DONE){
                     //printf("rx_done\n");
                     led = 1;
@@ -186,6 +181,13 @@ int main()
                             state = RTK_ERR;
                         }
                     }
+                }else if(timeout.elapsed_time() >= 30ms){
+                    lora.setModeIdle();
+                    printf("timeout\n");
+                    lora.n_payloads_sent = 0;
+                    state = RTK_GET_RTCM_MSG;
+                    timeout.stop();
+
                 }
                 /*
                 if(lora.event_handler() == RX_BAD){
@@ -210,6 +212,8 @@ int main()
                 
                 if(gps.data_ready()){
                     led = 1;
+                    
+    
                     /*
                     printf("cpl = 0x");
                     print_hex((char*)gps.rtcm_msg, gps.rtcm_msg_pointer);
@@ -218,7 +222,7 @@ int main()
 
                     gps.decode();
 
-
+                    
                     if(gps.printMsgTypes()){
                         gps.encode_RTCM(rtcm_data, rtcm_len);
                         //printf("rtcm = 0x");
@@ -228,13 +232,18 @@ int main()
                         printf("no rtcm\n");
                     }
                     
+                    
                     //gps.encode_UBX(ubx_data, ubx_len);
                     
                     //print_hex((char*)ubx_data, ubx_len);
                     //printf(" %d bytes\n", ubx_len);
-                    
-
-                    printf("total bytes from UART = %d\n", gps.rtcm_msg_pointer);
+                    /*
+                    for(int i = 0; i < 300; i++){
+                        rtcm_data[i] = i;
+                    }
+                    rtcm_len = 300;
+                    */
+                    printf("total bytes from UART = %d\n", gps.rtcm_msg_length);
                     
                     //maybe pack this in a function
                     lora.n_payloads = lora.get_n_payloads(rtcm_len);
@@ -254,18 +263,30 @@ int main()
                     }
 
                     //store ubx stuff to sd card
+
                     char buf[400];
                     uint16_t l = 0;
                     int i = 0;
+                    //first just get header should only execute once due to an internal counter
+                    while(gps.ubx[i].isvalid){
+                        if(gps.ubx[i].ubxHeader(buf, l)){
+                            sd.write2sd(buf, l);
+                        }
+                        i++;
+                    }
+                    sd.writeln();
+                    //the acual data
+                    l = 0;
+                    i = 0;
                     while(gps.ubx[i].isvalid){
                         if(gps.ubx[i].ubx2string(buf, l)){
-                            sd.write2sd(buf,l);
+                            sd.write2sd(buf, l);
                         } else {
                             printf("no ubx[%d]\n", i);
                         }
                         i++;
                     }
-                    sd.writeln();
+                    
                     gps.clearAll();
 
                     state = RTK_TRANSMIT;
