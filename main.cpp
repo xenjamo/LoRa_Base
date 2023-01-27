@@ -55,7 +55,8 @@ int main()
 
     // initalise serial spi ports
     spi.format(8, 0);
-    spi.frequency(10000000);
+    spi.frequency(10000000);//
+    
     uart.format(8,SerialBase::None,1);
     
 
